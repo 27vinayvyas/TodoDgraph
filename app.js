@@ -214,35 +214,6 @@ app.post('/delete', (req, res) => {
 
 });
 
-
-
-
-//   var author = 'User4';
-
-// fetch('https://wild-flower.ap-south-1.aws.cloud.dgraph.io/graphql', {
-//   method: 'POST',
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-//   body: JSON.stringify({
-//     query,
-//     // variables: {
-//     //   post: {
-//     //       "title": "GraphQL Variables",
-//     //       "text": "This post uses variables to input data",
-//     //       "author": { "username": "User1" },
-//     //       "category": { "id": "0x5" }
-//     //     }
-//     // }
-//   })
-// })
-//   .then(r => r.json())
-//   .then(data => console.log('data returned:', data));
-
-
-
-
-
 //  fetch('https://wild-flower.ap-south-1.aws.cloud.dgraph.io/graphql', {
 //   method: 'POST',
 //   headers: {
