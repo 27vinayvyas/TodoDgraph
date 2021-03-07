@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
-  
+require('dotenv').config();
+
 const express = require('express');
 const bodyParser = require('body-parser');
 
@@ -7,28 +8,28 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const server = app.listen(process.env.PORT || 5000, () => {  
+const server = app.listen(process.env.PORT || 3000, () => {  
   console.log('Express server listening on port %d in %s mode', server.address().port, app.settings.env);});
 
-
-
-var query1 = `
-query {
-  getUser(username: "User1") {
-    username
-  }
-}`
+  var query1 = `
+    query {
+      getUser(username: "User1") {
+        username
+      }
+    }`
 
   app.post('/con', (req, res) => {
-    let text = req.body.text;
-    let uname = req.body.user_name
     
+    let text = req.body.text;
+    let uname = req.body.user_name;
+
     if(text == ""){
       
       var query = `
       query getUser($username: String!) {
         getUser(username: $username) {
-          todos{
+          todos(order: { asc: datePublished }){
+            title
             text
           }
         }
@@ -48,25 +49,40 @@ query {
         })
       }).then(r => r.json())
         .then(data => {
-          //console.log(typeof data["data"]["getUser"]["todos"]);
+          console.log(typeof data["data"]["getUser"]["todos"]);
           var arr = data["data"]["getUser"]["todos"];
           var str = "";
       
-          
           for( var i=1; i<=arr.length; i++){
             //console.log(arr[i-1]["text"]);
             str = str + i + ". ";
+            str+='*';
+            str+= arr[i-1]["title"];
+            str+='*';
+            str+="\n";
             str+= arr[i-1]["text"];
             str+="\n";
           }
-          
           res.send(str);
-          
-          
         });
           
     }
     else{
+
+      //console.log(text);
+
+      //text = "[111][222][333]"
+
+      let vals=["","",""];
+      var j=0;
+    
+      for(var i=1;i<text.length;i++){
+        if(text[i]==']'){
+          i++;j++;continue;
+        }
+        vals[j]+=text[i];
+      }
+
       //console.log("NOT EMPTY")
       var query = `
         query getUser($username: String!) {
@@ -137,8 +153,9 @@ query {
        variables: {
         "todo" : {
           "author": {"username": uname},
-          "text": text,
-          "title" : "title1"
+          "title" : vals[0],
+          "text": vals[1],
+          "datePublished": parseInt(vals[2])
       }
       }
     })
@@ -154,38 +171,35 @@ query {
 app.post('/delete', (req, res) => {
 
   let uname = req.body.user_name;
-
   let todono = parseInt(req.body.text);
 
   var query = `
-    query getUser($username: String!) {
-      getUser(username: $username) {
-        todos{
-          id
-          text
-        }
+  query getUser($username: String!) {
+    getUser(username: $username) {
+      todos(order: { asc: datePublished }){
+        id 
       }
-    }`
-
-
-    fetch('https://wild-flower.ap-south-1.aws.cloud.dgraph.io/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-          variables: {
-          "username": uname 
-        }
-      })
-    }).then(r => r.json())
-      .then(data => {
-        //console.log(typeof data["data"]["getUser"]["todos"]);
-        var id = data["data"]["getUser"]["todos"][todono-1]["id"];
-      
-        //console.log("ID: ",id);
-
+    }
+  }`
+  
+  var id;
+  
+  fetch('https://wild-flower.ap-south-1.aws.cloud.dgraph.io/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+       variables: {
+        "username": uname 
+      }
+    })
+  }).then(r => r.json())
+    .then(data => {
+      var arr = data["data"]["getUser"]["todos"];
+        id =data["data"]["getUser"]["todos"][todono-1]["id"];
+        
         var query = `mutation deleteTodo($filter: TodoFilter!) {
           deleteTodo(filter: $filter) {
             msg 
@@ -205,14 +219,94 @@ app.post('/delete', (req, res) => {
           })
         }).then(r => r.json())
           .then(data => {
-            
+            res.send("Task Deleted Successfully");
             //console.log('DELETED:', )
           });
+
+
       });
-
-      res.send("Task Deleted Successfully");
-
 });
+
+app.post('/update', (req, res) => {
+
+  let uname = req.body.user_name;
+  let q= req.body.text;
+  let vals=["","","",""];
+  var j=0;
+  for(var i=1;i<q.length;i++){
+    if(q[i]==']'){
+      i++;j++;continue;
+    }
+    vals[j]+=q[i];
+  }
+
+  var todono = parseInt(vals[0]);
+
+  var query = `
+  query getUser($username: String!) {
+    getUser(username: $username) {
+      todos(order: { asc: datePublished }){
+        id 
+      }
+    }
+  }`
+  
+  
+  fetch('https://wild-flower.ap-south-1.aws.cloud.dgraph.io/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+       variables: {
+        "username": uname 
+      }
+    })
+  }).then(r => r.json())
+    .then(data => {
+      var arr = data["data"]["getUser"]["todos"];
+      var id =data["data"]["getUser"]["todos"][todono-1]["id"];
+        
+        var query = `mutation updateTodo($id: ID!, $post: TodoPatch) {
+          updateTodo(input: {
+            filter: { id: [$id] },
+            set: $post }
+          ) {
+            todo {
+              id,text,title
+              
+            }
+          }
+        }`
+
+        fetch('https://wild-flower.ap-south-1.aws.cloud.dgraph.io/graphql', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query,
+             variables: {  
+              "id": id, 
+              "post": {
+                "title": vals[1],
+                "text": vals[2],
+                "datePublished": parseInt(vals[3])
+              }
+           }
+          })
+        }).then(r => r.json())
+          .then(data => {
+            res.send("Task Updated Successfully");
+            //console.log('DELETED:', )
+          });
+
+
+      });
+});
+
+
 
 //  fetch('https://wild-flower.ap-south-1.aws.cloud.dgraph.io/graphql', {
 //   method: 'POST',
